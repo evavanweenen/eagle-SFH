@@ -14,10 +14,11 @@ from keras.optimizers import RMSprop, Adam, SGD
 from sklearn.model_selection import KFold #cross-validation
 
 #EAGLE settings
-sim = 'RefL0050N0752' #simulation
-cat = 'dusty-sdss' #catalogue to build model to
-snapshot = 28 #redshift to use
-L = 50 #box size
+fol = 'dustysdss_mstar_all/'
+sim = 'RefL0100N1504' #simulation
+cat = 'dusty-sdss-snap27' #catalogue to build model to
+snapshot = 27 #redshift to use
+L = 100 #box size
 
 
 #ML settings manual
@@ -55,12 +56,12 @@ dtype = ['<i8','<i8','<f8','<f8','<f8','<f8','<f8','<f8','<f8', '<f8']
 xnames=['log dusty sdss u', 'log dusty sdss g', 'log dusty sdss r', 'log dusty sdss i', 'log dusty sdss z']; ynames=['log $M_{*}$']
 xcols = ['dusty_sdss_u', 'dusty_sdss_g', 'dusty_sdss_r', 'dusty_sdss_i', 'dusty_sdss_z'] ; ycols = ['m_star']
 
-def preprocess(sim, cat, xcols, ycols, dtype, perc_train, skip_header=15):
+def preprocess(fol, sim, cat, xcols, ycols, dtype, perc_train, skip_header=15):
     #read data
-    data = read_data(sim, cat, dtype=dtype, skip_header=skip_header)
+    data = read_data(fol, sim, cat, dtype=dtype, skip_header=skip_header)
 
     #select redshift
-    data = select_redshift(data, snapshot)
+    #data = select_redshift(data, snapshot)
 
     #divide data into x and y
     x, y = divide_input_output(data, xcols, ycols)
@@ -127,7 +128,7 @@ def MLP_model(activation_h, activation_o, dropout, lr_rate, loss, optimizer):
     return model
    
 # read data
-x, y, x_train, y_train, x_test, y_test, xscaler, yscaler = preprocess(sim, cat, xcols, ycols, dtype, perc_train=perc_train)
+x, y, x_train, y_train, x_test, y_test, xscaler, yscaler = preprocess(fol, sim, cat, xcols, ycols, dtype, perc_train=perc_train)
 
 input_size = len(x_train[0])
 output_size = len(y_train[0])
