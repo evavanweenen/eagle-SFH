@@ -99,3 +99,17 @@ def data_ndarray(x, y, xcols, ycols):
     #merge x and y back together
     data = np.lib.recfunctions.merge_arrays([x,y], flatten=True)
     return data
+
+def write_data(folder, sim, cat, arr, **kwargs):
+    """
+    Write csv file with data from eagle
+    Arguments:
+        dir         - location of file
+        sim         - simulation
+        cat         - fluxes catalogue
+    Returns:
+        data (numpy ndarray)
+    """
+    print("Writing data with of simulation %s, catalogue %s"%(sim, cat))    
+    file = sim+'-'+cat+'.csv'    
+    return np.savetxt(dir+folder+file, arr, delimiter=',', **kwargs)
