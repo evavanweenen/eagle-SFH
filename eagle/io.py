@@ -3,7 +3,7 @@ from sklearn.preprocessing import MinMaxScaler
 
 dir = '/disks/strw9/vanweenen/mrp2/data/'
 
-def read_data(sim, cat, **kwargs):
+def read_data(folder, sim, cat, **kwargs):
     """
     Read csv file with data from eagle
     Arguments:
@@ -15,7 +15,7 @@ def read_data(sim, cat, **kwargs):
     """
     print("Reading data with of simulation %s, catalogue %s"%(sim, cat))    
     file = sim+'-'+cat+'.csv'    
-    return np.genfromtxt(dir+file, delimiter=',', names=True, **kwargs)
+    return np.genfromtxt(dir+folder+file, delimiter=',', names=True, **kwargs)
 
 def select_redshift(data, snapshot):
     """
@@ -26,7 +26,10 @@ def select_redshift(data, snapshot):
     Returns:
         data        - only data of a given redshift (numpy ndarray)
     """
-    print("Selecting data of a given redshift at snapshot %s .."%snapshot)    
+    print("Selecting data of a given redshift at snapshot %s .."%snapshot)
+
+    #TODO: DON'T USE THIS FUNCTION, IT IS NOT CORRECT  
+      
     return data[np.where(data['z'] == data['z'][snapshot])]
 
 def divide_input_output(data, xcols, ycols):
