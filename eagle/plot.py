@@ -22,6 +22,19 @@ def title(sim, cat, snapshot, score=None, MLtype=None, small=False, **kwargs):
             plottitle += '\n'
     return plottitle, savetitle, legendtitle
 
+def plot_sfr_z(sims, L, sfrs, zs):
+    plt.figure()
+    plt.title('Star formation history of the universe')
+    for i, sim in enumerate(sims):
+        sfr_sum = np.array(sfrs[i].sum(axis=0))[0]
+        plt.plot(zs[i], sfr_sum/(L[i]**3), label=sim)
+    plt.xscale('log')
+    plt.xlim(6*10**-2, 10**1)
+    plt.xlabel('$z$')
+    plt.ylabel('$\sum_i SFR_i$ ($M_{\odot} yr^{-1} Mpc^{-3}$)')
+    plt.legend()
+    plt.savefig(dir+'sfh_universe.pdf')
+
 def plot_learning_curve(history, epochs, test='validation'):
     fig, ax = plt.subplots(2,1, squeeze=True, sharex=True)
     plt.suptitle('Learning rate')
@@ -87,13 +100,13 @@ def gif_sed_mstar(x, y, Y_pred, dataset, sim, cat, snapshot, xnames, ynames, mse
 
     scatters = []
     for i, xname in enumerate(xnames):
-        ax[i].plot(x[:,i], y, 'ro', markersize=.3, markerfacecolor='dimgrey', markeredgecolor='none', label=dataset)        
+        ax[i].plot(x[:,i], y, 'o', markersize=1., markerfacecolor='dimgrey', markeredgecolor='none', label=dataset)        
         ax[i].set_xlabel(xname)
 
         idx = np.argsort(x[:,i])
         x_sort = x[:,i][idx]
         y_sort = Y_pred[0][idx]
-        scatter, = ax[i].plot(x_sort, y_sort, 'ro', markersize=.3, markerfacecolor='red', markeredgecolor='none', label='predict')
+        scatter, = ax[i].plot(x_sort, y_sort, 'o', markersize=1., markerfacecolor='red', markeredgecolor='none', label='predict')
         scatters.append(scatter)
     """
     def init():
