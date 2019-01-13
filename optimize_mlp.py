@@ -86,17 +86,17 @@ def create_model(X_train, Y_train, X_val, Y_val):
     for i in range(5):    
         model = Sequential()
         
-        model.add(Dense({{choice([5, 10, 20, 30, 40, 50, 60])}}, input_dim=5))
+        model.add(Dense({{choice([5, 10, 20, 30, 40, 50, 60])}}, input_dim=5, use_bias=True))
         model.add({{choice([LeakyReLU(), ELU(), Activation('relu'), Activation('tanh'), Activation('sigmoid')])}})
         model.add(Dropout({{uniform(0,1)}}))
         
         if conditional({{choice(['one', 'two'])}}) == 'two':
-            model.add(Dense({{choice([5, 10, 20, 30, 40, 50, 60])}}))
+            model.add(Dense({{choice([5, 10, 20, 30, 40, 50, 60])}}, use_bias=True))
             model.add({{choice([LeakyReLU(), ELU(), Activation('relu'), Activation('tanh'), Activation('sigmoid')])}})
             model.add(Dropout({{uniform(0,1)}}))
 
         if conditional({{choice(['two', 'three'])}}) == 'three':
-            model.add(Dense({{choice([5, 10, 20, 30, 40, 50, 60])}}))
+            model.add(Dense({{choice([5, 10, 20, 30, 40, 50, 60])}}, use_bias=True))
             model.add({{choice([LeakyReLU(), ELU(), Activation('relu'), Activation('tanh'), Activation('sigmoid')])}})
             model.add(Dropout({{uniform(0,1)}}))
         
