@@ -14,7 +14,7 @@ from keras.optimizers import RMSprop, Adam, SGD
 from sklearn.model_selection import KFold #cross-validation
 
 #EAGLE settings
-fol = 'dustysdss_mstar_all/'
+fol = ''
 sim = 'RefL0100N1504' #simulation
 cat = 'dusty-sdss-snap27' #catalogue to build model to
 snapshot = 27 #redshift to use
@@ -30,7 +30,7 @@ activation_o='relu'
 loss = 'mean_squared_error'
 lr_rate = 0.001
 epochs = 20
-batch_size = 8
+batch_size = 64#8
 optimizer = 'Adam'
 
 """
@@ -111,12 +111,12 @@ def MLP_model(activation_h, activation_o, dropout, lr_rate, loss, optimizer):
     print("Building model..")
     model = Sequential()
 
-    model.add(Dense(h_neurons[0], input_dim=input_size))
+    model.add(Dense(h_neurons[0], input_dim=input_size, use_bias=True))
     model.add(Activation(activation_h[0]))
     model.add(Dropout(dropout[0]))
 
     for i in range(1, len(h_neurons)):
-        model.add(Dense(h_neurons[i]))
+        model.add(Dense(h_neurons[i], use_bias=True))
         model.add(Activation(activation_h[i]))
         model.add(Dropout(dropout[i]))
 
@@ -127,6 +127,7 @@ def MLP_model(activation_h, activation_o, dropout, lr_rate, loss, optimizer):
     model.compile(loss=loss, optimizer=optimizer, metrics=[coeff_determination])
     return model
    
+#------------------------------------------CREATE GIF--------------------------------------------------------------
 # read data
 x, y, x_train, y_train, x_test, y_test, xscaler, yscaler = preprocess(fol, sim, cat, xcols, ycols, dtype, perc_train=perc_train)
 
@@ -134,8 +135,7 @@ input_size = len(x_train[0])
 output_size = len(y_train[0])
 neurons = [input_size] + h_neurons + [output_size]
 print("Neurons in the network: ", neurons)
-   
-#CREATE GIF
+
 #make architecture of network
 model = MLP_model(activation_h=activation_h, activation_o=activation_o, dropout=dropout, lr_rate=lr_rate, loss=loss, optimizer=optimizer)
 
@@ -153,7 +153,15 @@ for i in range(epochs):
 gif_sed_mstar(x=xscaler.inverse_transform(x_test), y=yscaler.inverse_transform(y_test), Y_pred=Y_pred, dataset='test', sim=sim, cat=cat, snapshot=snapshot, xnames=xnames, ynames=ynames, mse=mse, r2=r2, MLtype='Multi-layer perceptron', epochs=epochs, hiddenneurons=h_neurons, activation=activation_h, dropout=dropout, optimizer=optimizer, batchsize=batch_size)
 
 
-#DO NOT CREATE GIF
+#------------------------------------------DO NOT CREATE GIF--------------------------------------------------------------
+# read data
+x, y, x_train, y_train, x_test, y_test, xscaler, yscaler = preprocess(fol, sim, cat, xcols, ycols, dtype, perc_train=perc_train)
+
+input_size = len(x_train[0])
+output_size = len(y_train[0])
+neurons = [input_size] + h_neurons + [output_size]
+print("Neurons in the network: ", neurons)
+
 #make architecture of network
 model = MLP_model(activation_h=activation_h, activation_o=activation_o, dropout=dropout, lr_rate=lr_rate, loss=loss, optimizer=optimizer)
 
