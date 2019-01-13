@@ -29,6 +29,7 @@ def select_redshift(data, snapshot):
     print("Selecting data of a given redshift at snapshot %s .."%snapshot)
 
     #TODO: DON'T USE THIS FUNCTION, IT IS NOT CORRECT  
+    print("DON'T USE THIS FUNCTION, IT IS NOT CORRECT")
       
     return data[np.where(data['z'] == data['z'][snapshot])]
 
