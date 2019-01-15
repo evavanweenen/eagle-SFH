@@ -1,116 +1,91 @@
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 
-dir = '/disks/strw9/vanweenen/mrp2/data/'
+class IO:
+    def __init__(self, fol, sim, cat, snap, xcols, ycols, perc_train):
+        self.dir = '/disks/strw9/vanweenen/mrp2/data/'            
+        self.fol = fol                  # location of file
+        self.sim = sim                  # simulation
+        self.cat = cat                  # fluxes catalogue
+        self.snap = snap                # snapshot
+        self.xcols = xcols              # column names of input (list)
+        self.ycols = ycols              # column names of output (list)
+        self.perc_train = perc_train
+        self.path = self.dir + self.fol + self.sim + '-' + self.cat + '-snap' + str(self.snap) + '.csv'  
+         
+    def read_data(self, **kwargs):
+        """
+        Read csv file with data from eagle
+        """
+        print("Reading data with of simulation %s, catalogue %s"%(self.sim, self.cat))     
+        self.data = np.genfromtxt(self.path, delimiter=',', names=True, **kwargs)
+            
+    def divide_input_output(self):
+        """
+        Divide data into input and output
+        """
+        #divide data into input and output
+        x = self.data[self.xcols]
+        y = self.data[self.ycols]
+        
+        #convert structured array to array
+        x = np.array(x.tolist())
+        y = np.array(y.tolist())
+        return x, y
 
-def read_data(folder, sim, cat, **kwargs):
-    """
-    Read csv file with data from eagle
-    Arguments:
-        dir         - location of file
-        sim         - simulation
-        cat         - fluxes catalogue
-    Returns:
-        data (numpy ndarray)
-    """
-    print("Reading data with of simulation %s, catalogue %s"%(sim, cat))    
-    file = sim+'-'+cat+'.csv'    
-    return np.genfromtxt(dir+folder+file, delimiter=',', names=True, **kwargs)
+    def rescale_log(self, a):
+        """
+        Scale the data to a logarithmic scale
+        """
+        return np.log10(a)
 
-def select_redshift(data, snapshot):
-    """
-    Select only data of a given redshift
-    Arguments:
-        data        - data of galaxies (numpy ndarray)
-        snapshot    - snapshot to use (28 is at z=0, 0 is highest z)
-    Returns:
-        data        - only data of a given redshift (numpy ndarray)
-    """
-    print("Selecting data of a given redshift at snapshot %s .."%snapshot)
+    def rescale_lin(self, a):
+        """
+        Scale the data to a linear scale between 0 and 1
+        """
+        scaler = MinMaxScaler(feature_range=(0,1))
+        a = scaler.fit_transform(a)
+        return a, scaler
 
-    #TODO: DON'T USE THIS FUNCTION, IT IS NOT CORRECT  
-    print("DON'T USE THIS FUNCTION, IT IS NOT CORRECT")
-      
-    return data[np.where(data['z'] == data['z'][snapshot])]
+    def invscale_lin(self, a, scaler):
+        """
+        Transform x and y back to their original values
+        """    
+        a = scaler.inverse_transform(a)
+        return a
 
-def divide_input_output(data, xcols, ycols):
-    """
-    Divide data into input and output
-    Arguments:
-        data        - (numpy ndarray)
-        xcols       - column names of input (list)
-        ycols       - column names of output (list)
-    Returns:
-        x, y        - input, output (list, list)    
-    """
-    #divide data into input and output
-    x = data[xcols]
-    y = data[ycols]
+    def perm_train_test(self, x, y):
+        """
+        Apply a random permutation to the data and put perc_train percent in the training set and the remainder in the test set
+        """    
+        print("Permuting data..")    
+        #permute the data into the training and test set
+        self.perm = np.random.choice([True, False], len(self.data), p=[self.perc_train, 1-self.perc_train])
+        return x[self.perm,:], y[self.perm], x[np.invert(self.perm),:], y[np.invert(self.perm)]
+        
+    def data_ndarray(self, x, y):
+        """
+        Convert x and y back to a numpy ndarray
+        """
+        #convert array to structured array
+        x = np.core.records.fromarrays(x.transpose(), names=self.xcols, formats=5*['<f8'])
+        y = np.core.records.fromarrays(y.transpose(), names=self.ycols, formats=['<f8'])
+        
+        #merge x and y back together
+        self.data = np.lib.recfunctions.merge_arrays([x,y], flatten=True)
+
+    def write_data(self, arr, **kwargs):
+        """
+        Write csv file with data from eagle
+        Arguments:
+            dir         - location of file
+            sim         - simulation
+            cat         - fluxes catalogue
+        Returns:
+            data (numpy ndarray)
+        """
+        print("Writing data with of simulation %s, catalogue %s"%(self.sim, self.cat))    
+        path = dir + self.fol + self.sim+'-'+self.cat+'.csv'    
+        return np.savetxt(self.path, arr, delimiter=',', **kwargs)
     
-    #convert structured array to array
-    x = np.array(x.tolist())
-    y = np.array(y.tolist())
-    return x, y
 
-def rescale_lin(x, y):
-    """
-    Scale the data to a linear scale
-    """
-    #rescale the data to values between 0 and 1
-    xscaler = MinMaxScaler(feature_range=(0,1))
-    x = xscaler.fit_transform(x)
-    yscaler = MinMaxScaler(feature_range=(0,1))
-    y = yscaler.fit_transform(y)
-    return x, y, xscaler, yscaler
-
-def rescale_log(x, y):
-    """
-    Scale the data to a logarithmic scale
-    """
-    #take logarithm of data
-    x = np.log10(x)
-    y = np.log10(y)
-    return x, y
-
-def invscale_lin(data, scaler):
-    """
-    Transform x and y back to their original values
-    """    
-    data = scaler.inverse_transform(data)
-    return data
-
-def perm_train_test(x, y, length, perc_train=.8):
-    """
-    Apply a random permutation to the data and put perc_train percent in the training set and the remainder in the test set
-    """    
-    print("Permuting data..")    
-    #permute the data into the training and test set
-    
-    perm = np.random.choice([True, False], length, p=[perc_train, 1-perc_train])
-    return x[perm,:], y[perm], x[np.invert(perm),:], y[np.invert(perm)]
-    
-def data_ndarray(x, y, xcols, ycols):
-    """
-    Convert x and y back to a numpy ndarray
-    """
-    #convert array to structured array
-    x = np.core.records.fromarrays(x.transpose(), names=xcols, formats=5*['<f8'])
-    y = np.core.records.fromarrays(y.transpose(), names=ycols, formats=['<f8'])
-    
-    #merge x and y back together
-    data = np.lib.recfunctions.merge_arrays([x,y], flatten=True)
-    return data
-
-def write_data(folder, sim, cat, arr, **kwargs):
-    """
-    Write csv file with data from eagle
-    Arguments:
-        dir         - location of file
-        sim         - simulation
-        cat         - fluxes catalogue
-    Returns:
-        data (numpy ndarray)
-    """
-    print("Writing data with of simulation %s, catalogue %s"%(sim, cat))    
-    file = sim+'-'+cat+'.csv'    
-    return np.savetxt(dir+folder+file, arr, delimiter=',', **kwargs)
