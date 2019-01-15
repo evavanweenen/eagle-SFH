@@ -15,18 +15,25 @@ from hyperas.utils import eval_hyperopt_space
 
 from tabulate import tabulate
 
+import datetime
+import sys
+
 dir =  '/disks/strw9/vanweenen/mrp2/optimization/'
 
+name = '-1B'
+
+date = datetime.date.today().strftime('%Y%m%d')
+f = open(dir+'hyperas_'+date+name+'.out', 'w')
+sys.stdout = f
+
 def preprocess():
-    sim = 'RefL0050N0752' #simulation
-    cat = 'dusty-sdss' #catalogue to build model to
-    snapshot = 28 #redshift to use
+    fol = ''
+    sim = 'RefL0100N1504' #simulation
+    cat = 'dusty-sdss-snap27' #catalogue to build model to
+    snapshot = 27
 
     #read data
-    data = read_data(sim, cat, dtype=['<i8','<i8','<f8','<f8','<f8','<f8','<f8','<f8','<f8', '<f8'], skip_header=15)
-
-    #select redshift
-    data = select_redshift(data, snapshot)
+    data = read_data(fol, sim, cat, dtype=['<i8','<i8','<f8','<f8','<f8','<f8','<f8','<f8','<f8', '<f8'], skip_header=15)
 
     #divide data into x and y
     xcols = ['dusty_sdss_u', 'dusty_sdss_g', 'dusty_sdss_r', 'dusty_sdss_i', 'dusty_sdss_z']
@@ -41,7 +48,7 @@ def preprocess():
     x_train, y_train, x_test, y_test = perm_train_test(x, y, len(data), perc_train=.8)
 
     print("Total size of data: %s; size of training set: %s ; size of test set: %s"%(len(x), len(x_train), len(x_test)))
-    return x_train, y_train
+    return x_train, y_train #discard test data for optimizing hyperparameters
 
 def cross_validation(X, Y, K, seed):
     kf = KFold(n_splits=K, random_state=seed)
@@ -104,9 +111,10 @@ def create_model(X_train, Y_train, X_val, Y_val):
         model.add(Activation('relu'))
         
         model.compile(loss={{choice(['mse', 'mae'])}}, optimizer={{choice(['sgd', 'RMSprop', 'Adagrad', 'Adadelta', 'Adam', 'Adamax', 'Nadam'])}}, metrics=[coeff_determination])
-
+        #model.compile(loss='mse', optimizer='Adam', metrics=[coeff_determination]) select this if you want fixed loss and optimizer
     
-        result = model.fit(X_train[i], Y_train[i], batch_size={{choice([8,16,32])}}, epochs=30, verbose=0, validation_data=(X_val[i], Y_val[i]))
+        result = model.fit(X_train[i], Y_train[i], batch_size={{choice([8,16,32])}}, epochs=20, verbose=0, validation_data=(X_val[i], Y_val[i]))
+        #result = model.fit(X_train[i], Y_train[i], batch_size=64, epochs=20, verbose=0, validation_data=(X_val[i], Y_val[i])) select this if you want fixed batch size
         val_loss = np.amin(result.history['val_loss']) ; val_r2 = np.amax(result.history['val_coeff_determination'])
         crossval_loss.append(val_loss) ; crossval_r2.append(val_r2)
     avg_crossval_loss = np.average(crossval_loss) ; avg_crossval_r2 = np.average(crossval_r2)
@@ -116,8 +124,8 @@ def create_model(X_train, Y_train, X_val, Y_val):
     
 architect, best_runs, models, mses, r2s = [],[],[],[],[]
 
-best_run, best_model = optim.minimize(model=create_model, data=data, functions=[preprocess, cross_validation, coeff_determination], algo=tpe.suggest, max_evals=5, trials=Trials(), rseed=7, eval_space=True)
-best_model.save(dir+'model_hyp.h5')
+best_run, best_model = optim.minimize(model=create_model, data=data, functions=[preprocess, cross_validation, coeff_determination], algo=tpe.suggest, max_evals=10, trials=Trials(), rseed=7, eval_space=True)
+best_model.save(dir+'model_hyp_'+date+name+'.h5')
 
 print("Best performing model chosen hyper-parameters:", best_run)
 
@@ -140,6 +148,6 @@ architect.append(best_model)
 mses.append(mse)
 r2s.append(r2)
 
-
+f.close()
 
 #print(tabulate(np.array([range(10), mses, r2s, headers=['Model', 'Best Run MSE', 'r2']])))k
