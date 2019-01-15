@@ -53,9 +53,9 @@ def plot_learning_curve(history, epochs, test='validation'):
     ax[0].legend()
     plt.savefig(dir+'Learning_rate_epochs%s.pdf'%epochs)
 
-def plot_sed_mstar(x, y, dataset, sim, cat, snapshot, xnames, ynames, predict=True, y_pred=None, score=None, MLtype=None, **kwargs):
+def plot_input_output(inp, outp, x, y, dataset, sim, cat, snapshot, xnames, ynames, predict=True, y_pred=None, score=None, MLtype=None, **kwargs):
     plottitle, savetitle, legendtitle = title(sim, cat, snapshot, score, MLtype, small=False, **kwargs)
-    savetitle += '_sed-mstar.pdf'
+    savetitle += '_'+inp+'-'+outp+'.pdf'
 
     fig, ax = plt.subplots(1,5, figsize=(20,4), squeeze=True, sharey=True)
     fig.subplots_adjust(wspace=0, hspace=0)
@@ -75,10 +75,10 @@ def plot_sed_mstar(x, y, dataset, sim, cat, snapshot, xnames, ynames, predict=Tr
     plt.savefig(dir+savetitle)
 
 
-def plot_prediction_test(y, y_pred, sim, cat, snapshot, score=None, MLtype='', **kwargs):
+def plot_prediction_test(outp, y, y_pred, sim, cat, snapshot, score=None, MLtype='', **kwargs):
     xname='target log $M_{*}$'; yname='predicted log $M_{*}$'
     plottitle, savetitle, legendtitle = title(sim, cat, snapshot, score, MLtype, small=True, **kwargs)
-    savetitle += '_test-predict.pdf'
+    savetitle += '_'+outp+'_test-predict.pdf'
     
     plt.figure(figsize=(8,6))
     plt.title(plottitle)
