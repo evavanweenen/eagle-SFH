@@ -5,7 +5,39 @@ from matplotlib.animation import FuncAnimation, ArtistAnimation, writers
 rc('text', usetex=True)
 plt.style.use('seaborn-colorblind')
 
-class Plot:
+
+class PLOT_DATA:
+    def __init__(self, datanames, **kwargs):
+        self.dir = '/disks/strw9/vanweenen/mrp2/plots/'
+        self.datanames = datanames
+        self.kwargs = kwargs
+
+    def title(self, catalogue):
+        title = 'Data '
+        for cat in catalogue:
+            title += ' ' + cat
+        self.savetitle = title; self.plottitle = title
+        for count, i in enumerate(self.kwargs):
+            self.savetitle += '_' + str(i) + '=' + str(self.kwargs[i])
+            self.plottitle += ' $\mid$ ' + str(i) + '=' + str(self.kwargs[i])
+
+    def hist_data(self, catalogue, data):
+        self.title(catalogue)
+        fig, ax = plt.subplots(1,data[0].shape[1], figsize=(4*data[0].shape[1],4), squeeze=True, sharey=True)
+        fig.subplots_adjust(wspace=0, hspace=0)
+        fig.suptitle(self.plottitle)
+        for i, name in enumerate(self.datanames):
+            for j, cat in enumerate(catalogue):
+                ax[i].hist(data[j][:,i], bins=30, histtype='stepfilled', density=True, label=cat, alpha=.5)
+            ax[i].set_xlabel(name)
+            if i != 5:
+                ax[i].set_xlim([-6,-1])
+            else:
+                ax[i].set_xlim([6,12])
+        plt.legend()
+        plt.savefig(self.dir + self.savetitle + '.pdf')
+
+class PLOT_NN:
     def __init__(self, io, nn, xnames, ynames, MLtype, score = None, epochs = None):
         self.dir = '/disks/strw9/vanweenen/mrp2/plots/'
         self.inp = io.cat
@@ -34,19 +66,6 @@ class Plot:
             #if (small == True and count%3 == 2):
             #    plottitle += ' \n '
 
-    def plot_sfr_z(sims, L, sfrs, zs):
-        plt.figure()
-        plt.title('Star formation history of the universe')
-        for i, sim in enumerate(sims):
-            sfr_sum = np.array(sfrs[i].sum(axis=0))[0]
-            plt.plot(zs[i], sfr_sum/(L[i]**3), label=sim)
-        plt.xscale('log')
-        plt.xlim(6*10**-2, 10**1)
-        plt.xlabel('$z$')
-        plt.ylabel('$\sum_i SFR_i$ ($M_{\odot} yr^{-1} Mpc^{-3}$)')
-        plt.legend()
-        plt.savefig(self.dir+'sfh_universe.pdf')
-
     def plot_learning_curve(self, history, epochs):
         fig, ax = plt.subplots(2,1, squeeze=True, sharex=True)
         plt.suptitle('Learning rate')
@@ -60,7 +79,7 @@ class Plot:
         ax[1].set_xlabel('epoch')
         ax[1].set_xlim((0., epochs))
         ax[0].legend()
-        plt.savefig(self.savetitle+'+_learning_rate.pdf')
+        plt.savefig(self.savetitle+'_learning_rate.pdf')
 
     def plot_input_output(self, x, y, y_pred):
         fig, ax = plt.subplots(y.shape[1],x.shape[1], figsize=(4*x.shape[1],4*y.shape[1]), squeeze=True, sharey=True)
@@ -120,3 +139,16 @@ class Plot:
 
         anim = FuncAnimation(fig, update, fargs = (scatters, x, Y_pred, mse, r2), frames = np.arange(kwargs['epochs']), save_count=20, interval=1000)
         anim.save(self.savetitle+'_sed-mstar.mp4', dpi=300, writer=Writer(fps=1, metadata=dict(artist='Eva'), bitrate=1800))
+
+def plot_sfr_z(sims, L, sfrs, zs):
+    plt.figure()
+    plt.title('Star formation history of the universe')
+    for i, sim in enumerate(sims):
+        sfr_sum = np.array(sfrs[i].sum(axis=0))[0]
+        plt.plot(zs[i], sfr_sum/(L[i]**3), label=sim)
+    plt.xscale('log')
+    plt.xlim(6*10**-2, 10**1)
+    plt.xlabel('$z$')
+    plt.ylabel('$\sum_i SFR_i$ ($M_{\odot} yr^{-1} Mpc^{-3}$)')
+    plt.legend()
+    plt.savefig(self.dir+'sfh_universe.pdf')
