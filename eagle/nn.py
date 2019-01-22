@@ -3,6 +3,9 @@ from keras import backend as K
 from keras.models import Sequential, load_model
 from keras.layers import Dense, Dropout, Activation
 from keras.optimizers import RMSprop, Adam, SGD
+from sklearn.model_selection import GridSearchCV
+from keras.wrappers.scikit_learn import KerasClassifier
+
 
 class NN():
     def __init__(self, input_size, output_size, h_neurons, activation_h, dropout, activation_o, loss, lr_rate, epochs, batch_size, optimizer):
@@ -52,8 +55,24 @@ class NN():
         self.model.add(Activation(self.activation_o))
         #compile model
         self.model.compile(loss=self.loss, optimizer=self.optimizer, metrics=[self.coeff_determination])
-        
-    
+        return self.model   
+
+    def GridSearch(self):
+        #TODO: checken of self.model returnen nodig is bij KerasClassifier
+        #https://blogs.oracle.com/meena/simple-neural-network-model-using-keras-and-grid-search-hyperparameterstuning
+        #TODO: finish grid search
+        model = KerasClassifier(build_fn=self.MLP_model, verbose=0)
+        param_grid = dict(h_neurons=self.h_neurons, dropout=self.dropout, activation_h=self.activation_h, activation_o=self.activation_o, batch_size=self.batch_size, optimizer=self.optimizer)        
+        self.grid = GridSearchCV(estimator=model, param_grid=param_grid, cv=5, n_jobs=-1)
+
+    def hyperas_create_model(self, X_train, Y_train, X_val, Y_val):
+        self.MLP_model()
+
+"""        
+class OPTIM(NN):
+    def __init__(self, input_arr, output_arr, h_neurons_arr, activation_h_arr, dropout_arr, activation_o_arr, loss_arr, lr_rate_arr, epochs_arr, batch_size_arr, optimizer_arr):
+        self.input_arr = 
+"""
 """
 def OPTIM(NN):
     def __init__(self):
