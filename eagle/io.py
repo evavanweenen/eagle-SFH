@@ -1,7 +1,8 @@
+from .calc import *
+
 import numpy as np
 import h5py
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
-
 
 class SDSS:
     def __init__(self, datacols, xcols, ycols, redshift):
@@ -23,10 +24,14 @@ class SDSS:
     def select_redshift(self, frac = 5e-8):
         self.data = self.data[np.where(self.data['Redshift'] > self.redshift - frac) and np.where(self.data['Redshift'] < self.redshift + frac)]
 
-    def preprocess(self, frac = 5e-8):
+    def preprocess(self, eagle, frac = 5e-8):
         self.read_data()
         #select only galaxies of given redshift
         self.select_redshift(frac)
+        #select only columns necessary
+        self.datacols = self.xcols + self.ycols
+        select_cols(self)
+
         #divide data into x and y
         x, y = divide_input_output(self)
 
@@ -37,8 +42,8 @@ class SDSS:
         x, y = remove_inf(x, y)
 
         #scale data to standard scale with mean 0 and covariance 1
-        x, self.xscaler = rescale_standard(x, EAGLE.xscaler)
-        y, self.yscaler = rescale_standard(y, EAGLE.yscaler)
+        x, self.xscaler = rescale_standard(x, eagle.xscaler)
+        y, self.yscaler = rescale_standard(y, eagle.yscaler)
         return x, y
 
     def postprocess(self, x, y, y_pred):
@@ -48,12 +53,13 @@ class SDSS:
         return x, y, y_pred
 
 class EAGLE:
-    def __init__(self, fol, sim, cat, snap, xcols, ycols, perc_train, dtype=['<i8','<i8','<f8','<f8','<f8','<f8','<f8','<f8','<f8', '<f8'], skip_header=15):
+    def __init__(self, fol, sim, cat, snap, redshift, xcols, ycols, perc_train, dtype=2*['<i8']+['<f8']+['<i8']+12*['<f8'], skip_header=21):
         self.dir = '/disks/strw9/vanweenen/mrp2/data/'            
         self.fol = fol                  # location of file
         self.sim = sim                  # simulation
         self.cat = cat                  # fluxes catalogue
         self.snap = snap                # snapshot
+        self.redshift = redshift        # redshift of snapshot
         self.xcols = xcols              # column names of input (list)
         self.ycols = ycols              # column names of output (list)
         self.datacols = self.xcols + self.ycols
@@ -69,12 +75,19 @@ class EAGLE:
         print("Reading data with of simulation %s, catalogue %s"%(self.sim, self.cat))     
         self.data = np.genfromtxt(self.path, delimiter=',', names=True, dtype=self.dtype, skip_header=self.skip_header)
     
-    def preprocess(self):
+    def preprocess(self, Xtype='magnitude'):
         #read data     
         self.read_data()
+        select_cols(self)
 
         #divide data into x and y
         x, y = divide_input_output(self)
+
+        if Xtype == 'magnitude':
+            d_L = luminosity_distance(self.redshift)
+            m_AB = abs_to_app_mag(x, d_L)
+            flux = magAB_to_flux(m_AB)
+            x = flux
 
         #scale data to a logarithmic scale and then scale to standard scale with mean 0 and covariance 1
         x = rescale_log(x)
@@ -131,7 +144,7 @@ def rescale_log(a):
     """
     return np.log10(a)
 
-def rescale_lin(a, scaler=MinMaxScaler(feature_range=(0,1)):
+def rescale_lin(a, scaler=MinMaxScaler(feature_range=(0,1))):
     """
     Scale the data to a linear scale between 0 and 1
     """
