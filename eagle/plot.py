@@ -21,19 +21,19 @@ class PLOT_DATA:
             self.savetitle += '_' + str(i) + '=' + str(self.kwargs[i])
             self.plottitle += ' $\mid$ ' + str(i) + '=' + str(self.kwargs[i])
 
-    def hist_data(self, catalogue, data):
+    def hist_data(self, catalogue, data, xlim=[-6, -2], ylim=[7,12]):
         self.title(catalogue)
         fig, ax = plt.subplots(1,data[0].shape[1], figsize=(4*data[0].shape[1],4), squeeze=True, sharey=True)
         fig.subplots_adjust(wspace=0, hspace=0)
         fig.suptitle(self.plottitle)
         for i, name in enumerate(self.datanames):
             for j, cat in enumerate(catalogue):
-                ax[i].hist(data[j][:,i], bins=30, histtype='stepfilled', density=True, label=cat, alpha=.5)
+                ax[i].hist(data[j][:,i], bins=20, histtype='step', density=True, label=cat, alpha=.5)
             ax[i].set_xlabel(name)
             if i != 5:
-                ax[i].set_xlim([-6,-1])
+                ax[i].set_xlim(xlim)
             else:
-                ax[i].set_xlim([6,12])
+                ax[i].set_xlim(ylim)
         plt.legend()
         plt.savefig(self.dir + self.savetitle + '.pdf')
 
@@ -53,7 +53,7 @@ class PLOT_NN:
         self.orange = '#FF6500'
         self.blue = '#009DFF'  ##33D6FF  
 
-        self.title(io, ep=self.epochs, hneurons=nn.h_neurons, act=nn.activation_h, drop=nn.dropout, optim=nn.optimizer, b=nn.batch_size)
+        self.title(io, ep=self.epochs, hnodes=list(filter(None, nn.h_nodes)), act=list(filter(None, nn.activation)), drop=list(filter(None, nn.dropout)), optim=nn.optimizer, b=nn.batch_size)
 
     def title(self, io, small=False, **kwargs):
         title = self.MLtype
@@ -101,8 +101,8 @@ class PLOT_NN:
         plt.title(self.plottitle)
         plt.plot([np.min(y), np.max(y)], [np.min(y_pred), np.max(y_pred)], color='black', linewidth=.5)
         plt.scatter(y, y_pred, s=2., marker='o', color='green', edgecolor='none', zorder=1)
-        plt.xlabel('target log $M_{*}$')
-        plt.ylabel('predicted log $M_{*}$')
+        plt.xlabel('target log $M_{*} (M_{\odot})$')
+        plt.ylabel('predicted log $M_{*} (M_{\odot})$')
         plt.legend(title=self.legendtitle)
         plt.savefig(self.savetitle+'_'+self.outp+'_test-predict.pdf')
            
