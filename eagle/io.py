@@ -8,7 +8,7 @@ class SDSS:
     def __init__(self, datacols, xcols, ycols, redshift):
         self.dir = '/disks/strw9/vanweenen/mrp2/data/'
         self.file = 'SDSS_DR9.hdf5'
-        self.datacols = datacols 
+        self.datacols = datacols +['Redshift']
         self.xcols = xcols 
         self.ycols = ycols 
         self.redshift = redshift
@@ -21,13 +21,16 @@ class SDSS:
             self.data[:,i] = self.hf_data.get(col)[()]
         self.data = to_structured_array(self.data, self.datacols, dtype = len(self.datacols)*['<f8'])
 
-    def select_redshift(self, frac = 5e-8):
-        self.data = self.data[np.where(self.data['Redshift'] > self.redshift - frac) and np.where(self.data['Redshift'] < self.redshift + frac)]
+    def select_redshift(self, frac = 5e-3):
+        self.data = self.data[np.where(self.data['Redshift'] > self.redshift*(1 - frac))]
+        self.data = self.data[np.where(self.data['Redshift'] < self.redshift*(1 + frac))]
 
-    def preprocess(self, eagle, frac = 5e-8):
+    def preprocess(self, eagle, frac = 5e-3, scaling=True):        
         self.read_data()
+
         #select only galaxies of given redshift
         self.select_redshift(frac)
+        
         #select only columns necessary
         self.datacols = self.xcols + self.ycols
         select_cols(self)
@@ -35,21 +38,24 @@ class SDSS:
         #divide data into x and y
         x, y = divide_input_output(self)
 
+        #remove galaxies with zero mass or zero flux
+        x, y = remove_zero(x, y)
+
         #scale only x data to a logarithmic scale 
         x = rescale_log(x)
 
         #remove infinite values caused by logarithmic scaling
-        x, y = remove_inf(x, y)
+        self.x, self.y = remove_inf(x, y)
+        
+        if scaling:
+            #scale data to standard scale with mean 0 and covariance 1
+            self.x = rescale(self.x, eagle.xscaler)
+            self.y = rescale(self.y, eagle.yscaler)
 
-        #scale data to standard scale with mean 0 and covariance 1
-        x, self.xscaler = rescale_standard(x, eagle.xscaler)
-        y, self.yscaler = rescale_standard(y, eagle.yscaler)
-        return x, y
-
-    def postprocess(self, x, y, y_pred):
-        x = invscale(x, self.xscaler)
-        y = invscale(y, self.yscaler)
-        y_pred = invscale(y_pred, self.yscaler)
+    def postprocess(self, eagle, x, y, y_pred):
+        x = invscale(x, eagle.xscaler)
+        y = invscale(y, eagle.yscaler)
+        y_pred = invscale(y_pred, eagle.yscaler)
         return x, y, y_pred
 
 class EAGLE:
@@ -75,7 +81,7 @@ class EAGLE:
         print("Reading data with of simulation %s, catalogue %s"%(self.sim, self.cat))     
         self.data = np.genfromtxt(self.path, delimiter=',', names=True, dtype=self.dtype, skip_header=self.skip_header)
     
-    def preprocess(self, Xtype='magnitude'):
+    def preprocess(self, Xtype='flux', scaling=True):
         #read data     
         self.read_data()
         select_cols(self)
@@ -83,17 +89,20 @@ class EAGLE:
         #divide data into x and y
         x, y = divide_input_output(self)
 
-        if Xtype == 'magnitude':
-            d_L = luminosity_distance(self.redshift)
-            m_AB = abs_to_app_mag(x, d_L)
-            flux = magAB_to_flux(m_AB)
-            x = flux
+        # convert absolute magnitude to flux
+        if Xtype == 'magnitude': 
+            x = magAB_to_flux(abs_to_app_mag(x, luminosity_distance(self.redshift)))
 
-        #scale data to a logarithmic scale and then scale to standard scale with mean 0 and covariance 1
-        x = rescale_log(x)
-        y = rescale_log(y)
-        self.x, self.xscaler = rescale_standard(x)
-        self.y, self.yscaler = rescale_standard(y)
+        #scale data to a logarithmic scale 
+        self.x = rescale_log(x)
+        self.y = rescale_log(y)
+
+        if scaling:
+            #scale to standard scale with mean 0 and covariance 1
+            self.xscaler = fitscale(self.x, scaler=MinMaxScaler(feature_range=(-1,1))) #StandardScaler())#
+            self.yscaler = fitscale(self.y, scaler=MinMaxScaler(feature_range=(-1,1))) #StandardScaler())#
+            self.x = rescale(self.x, self.xscaler)
+            self.y = rescale(self.y, self.yscaler)
 
         #divide data into train and test set
         x_train, y_train, x_test, y_test = perm_train_test(self)
@@ -144,33 +153,60 @@ def rescale_log(a):
     """
     return np.log10(a)
 
-def rescale_lin(a, scaler=MinMaxScaler(feature_range=(0,1))):
+def fitscale(a, scaler=StandardScaler()):
     """
-    Scale the data to a linear scale between 0 and 1
+    Fit a scaler to data a
+    Arguments:
+        a       - data to be scaled
+        scaler  - StandardScaler() or MinMaxScaler(feature_range=(-1,1))
+    Returns:
+        scaler  - a fitted scaler
     """
-    a = scaler.fit_transform(a)
-    return a, scaler
+    scaler.fit(a)
+    return scaler
 
-def rescale_standard(a, scaler=StandardScaler()):
+def rescale(a, scaler):
     """
-    Scale the data to a standard scale with mean 0 and covariance 1
+    Transform the data a using standard or linear scaler scaler
     """
-    a = scaler.fit_transform(a)
-    return a, scaler
+    return scaler.transform(a)
 
 def invscale(a, scaler):
     """
-    Transform x and y back to their original values
+    Transform data a back to its original values
     """    
     return scaler.inverse_transform(a)
 
+def remove_zero(x, y):
+    """
+    Remove galaxies with zero mass or zero flux
+    Arguments:
+        x       - galaxy fluxes (array)
+        y       - galaxy stellar mass (array)
+    Returns
+        x       - galaxy fluxes (array)
+        y       - galaxy stellar mass (array)   
+    """
+    y = y[~np.any(x == 0, axis=1)]
+    x = x[~np.any(x == 0, axis=1)]
+    x = x[~np.any(y == 0, axis=1)]
+    y = y[~np.any(y == 0, axis=1)]
+    return x, y
+
 def remove_inf(x, y):
-    x_mask = ~np.isinf(x).any(axis=1)
-    x = x[x_mask]
-    y = y[x_mask]
-    y_mask = ~np.isinf(y).any(axis=1)    
-    x = x[y_mask]
-    y = y[y_mask]
+    """
+    Remove galaxies with infinite values caused by log
+    Arguments:
+        x       - galaxy fluxes (array)
+        y       - galaxy stellar mass (array)
+    Returns
+        x       - galaxy fluxes (array)
+        y       - galaxy stellar mass (array)  
+    """
+    y = y[~np.isinf(x).any(axis=1)]
+    x = x[~np.isinf(x).any(axis=1)]  
+    x = x[~np.isinf(y).any(axis=1)]
+    y = y[~np.isinf(y).any(axis=1)]
     return x, y
 
 def perm_train_test(self):
@@ -188,6 +224,9 @@ def to_structured_array(a, acols, dtype):
     """
     #convert array to structured array
     return np.core.records.fromarrays(a.transpose(), names=acols, formats=dtype)
+
+def merge_x_y(x,y):
+    return np.hstack((x, y))
 
 def merge_structured_x_y(x, y):
     """
