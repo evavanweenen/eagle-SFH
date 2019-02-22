@@ -7,7 +7,7 @@ from keras.models import Sequential #Sequential NN
 from keras.layers import Dense, Dropout, Activation
 from keras.layers.advanced_activations import LeakyReLU, ELU
 from keras.optimizers import RMSprop, Adam, SGD
-from sklearn.model_selection import KFold #cross-validation
+from sklearn.model_selection import KFold #cross-validation #done
 from hyperopt import Trials, STATUS_OK, tpe
 from hyperas import optim
 from hyperas.distributions import choice, uniform, conditional
