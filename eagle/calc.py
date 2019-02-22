@@ -32,45 +32,24 @@ def luminosity_distance(z_eval, H_0 = 67.77, omega_m = 0.307, omega_lambda = 0.6
 
 def app_to_abs_mag(m, d_L):
     """
-    Convert apparent magnitude to absolute magnitude
-    Arguments:
-        m           - apparent magnitude
-        d_L         - luminosity distance (pc)
-    Returns:
-        M           - absolute magnitude
+    Convert apparent magnitude m to absolute magnitude M using luminosity distance d_L (pc)
     """
     return m - 5*np.log10(d_L/10)
 
 def abs_to_app_mag(M, d_L):
     """
-    Convert absolute magnitude to apparent magnitude
-    Arguments:
-        M           - absolute magnitude
-        d_L         - luminosity distance (pc)
-    Returns:
-        m           - apparent magnitude
+    Convert absolute magnitude M to apparent magnitude m using luminosity distance d_L (pc)
     """
     return M + 5*np.log10(d_L/10)
     
-
 def flux_to_magAB(flux):
     """
-    Convert flux to AB magnitude using: m_AB = -2.5 log10(flux/3631 Jy)
-    Arguments:
-        flux        - (Jy)
-    Returns
-        m_AB        - AB apparent magnitude
+    Convert flux (Jy) to AB apparent magnitude m_AB
     """
-    return -2.5*np.log10(flux/3631)
-
+    return -2.5*np.log10(np.true_divide(flux,3631))
 
 def magAB_to_flux(m_AB):
     """
-    Convert AB magnitude to flux using: flux = 3631 Jy * 10**(-m_AB/2.5)
-    Arguments:
-        m_AB        - AB apparent magnitude
-    Returns:
-        flux        - (Jy)
+    Convert AB apparent magnitude to flux (Jy)
     """
-    return 3631*10**(-m_AB/2.5)
-
+    return 3631*10**(-np.true_divide(m_AB,2.5))
