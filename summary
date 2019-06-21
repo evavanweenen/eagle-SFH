@@ -1,0 +1,62 @@
+#!/bin/bash
+
+folder="mass_brinchmann_salpeter"
+cd ../plots/$folder
+
+samplings=( "None" "random" "uniform" )
+colors=( "nocolors" "subsetcolors" "allcolors" )
+
+for s in "${samplings[@]}"
+do
+	for c in "${colors[@]}"
+	do
+		cd $s'_'$c
+		pwd
+		for file in *; do mv "$file" `echo $file | tr ' ' '_'` ; done
+               
+		A="$(find ./ -type f -name "*test-predict*" -a -name "MLP_eagle*")"
+		B="$(find ./ -type f -name "*error*" -a -name "MLP_eagle*")"
+		C="$(find ./ -type f -name "*test-predict*" -a -name "MLP_sdss*")"
+		D="$(find ./ -type f -name "*error*" -a -name "MLP_sdss*")"
+
+		for file in $A; do cp $file A.pdf; done
+		for file in $B; do cp $file B.pdf; done
+		for file in $C; do cp $file C.pdf; done
+		for file in $D; do cp $file D.pdf; done
+
+		for file in *eagle-train_eagle-test*; do cp $file distr.pdf; done
+		for file in *learning_rate*; do cp $file L.pdf; done
+		for file in Correlation_eagle*; do cp $file CE.pdf; done
+		for file in Correlation_sdss*; do cp $file CS.pdf; done
+		pdftk A.pdf B.pdf C.pdf D.pdf cat output $s'_'$c.pdf
+		cd ..
+	done
+	#learning rate
+	pdftk $s'_'${colors[0]}/L.pdf $s'_'${colors[1]}/L.pdf $s'_'${colors[2]}/L.pdf cat output Learning_rate_$s.pdf
+	#results
+	pdftk $s'_'${colors[0]}/$s'_'${colors[0]}.pdf $s'_'${colors[1]}/$s'_'${colors[1]}.pdf $s'_'${colors[2]}/$s'_'${colors[2]}.pdf cat output $s.pdf
+done
+
+#results
+pdftk ${samplings[0]}.pdf ${samplings[1]}.pdf ${samplings[2]}.pdf cat output results_$folder.pdf
+#learning rate
+pdftk Learning_rate_${samplings[0]}.pdf Learning_rate_${samplings[1]}.pdf Learning_rate_${samplings[2]}.pdf cat output Learning_rate.pdf
+#correlations
+pdftk ${samplings[0]}_${colors[2]}/CE.pdf ${samplings[1]}_${colors[2]}/CE.pdf ${samplings[2]}_${colors[2]}/CE.pdf cat output Correlations_eagle.pdf
+pdftk ${samplings[0]}_${colors[2]}/CS.pdf ${samplings[1]}_${colors[2]}/CS.pdf ${samplings[2]}_${colors[2]}/CS.pdf cat output Correlations_sdss.pdf
+pdftk Correlations_eagle.pdf Correlations_sdss.pdf cat output Correlations.pdf
+#distributions
+for c in "${colors[@]}"
+do
+	pdftk ${samplings[0]}_$c/distr.pdf ${samplings[1]}_$c/distr.pdf ${samplings[2]}_$c/distr.pdf cat output Distributions_$c.pdf
+done
+
+for s in "${samplings[@]}"
+do
+        for c in "${colors[@]}"
+        do
+		cd $s'_'$c
+		rm A.pdf B.pdf C.pdf D.pdf distr.pdf L.pdf CE.pdf CS.pdf
+		cd ..
+	done
+done

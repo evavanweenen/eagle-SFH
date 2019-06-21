@@ -1,0 +1,21 @@
+#!/bin/bash
+
+python3 mlp_featureimportance_bottomup_sdss.py nocolors
+cd ../plots/feature_importance
+mkdir bottomup/sdss_offset_nocolors
+mv *.npy bottomup/sdss_offset_nocolors
+cd ../../code
+
+python3 mlp_featureimportance_bottomup_sdss.py subsetcolors
+cd ../plots/feature_importance
+mkdir bottomup/sdss_offset_subsetcolors
+mv *.npy bottomup/sdss_offset_subsetcolors
+cd ../../code
+
+python3 mlp_featureimportance_bottomup_sdss.py allcolors
+cd ../plots/feature_importance
+mkdir bottomup/sdss_offset_allcolors
+mv *.npy bottomup/sdss_offset_allcolors
+cd ../../code
+
+

@@ -3,6 +3,7 @@ from eagle.plot import *
 from eagle.nn import *
 
 import numpy as np
+from numpy.lib.recfunctions import structured_to_unstructured
 import tensorflow as tf
 import shap
 from keras import backend
@@ -35,7 +36,7 @@ redshift = 1.0063854e-01#0.1# redshift of snapshot
 #redshift_array = np.flip(np.array([2.2204460e-16, 1.0063854e-01, 1.8270987e-01, 2.7090108e-01, 3.6566857e-01, 5.0310730e-01, 6.1518980e-01, 7.3562960e-01, 8.6505055e-01, 1.0041217e+00, 1.2593315e+00, 1.4867073e+00, 1.7369658e+00, 2.0124102e+00, 2.2370370e+00, 2.4784133e+00, 3.0165045e+00, 3.5279765e+00, 3.9836636e+00, 4.4852138e+00, 5.0372367e+00, 5.4874153e+00, 5.9711623e+00, 7.0495663e+00, 8.0746160e+00, 8.9878750e+00, 9.9930330e+00]))
 #redshift = redshift_array[snap - 2]
 
-fluxes =  ('u', 'g', 'r', 'i', 'z')
+fluxes = ('u', 'g', 'r', 'i', 'z')
 if inp == 'nocolors':
     colors = ()
 elif inp == 'subsetcolors':
@@ -63,14 +64,11 @@ ynames=['$\log_{10} M_{*} (M_{\odot})$']#['$\log_{10}$ SFR $(M_{\odot} yr^{-1})$
 
 #preprocessing
 cs = False ; cs_mask = None #central satellite analysis (only change cs)
-sampling = args.sampling #'uniform'
-superuniform = False
-
-#both same uniform mass distribution
-if superuniform:
-    bins = 300 ; count = 5 ; N = 625 #both same uniform mass distribution
-else: 
-    bins = 10 ; count = 125 ; N = 625 
+sampling = args.sampling#'uniform'
+N=625
+#bins = 10 ; count = 50 ; N = 625 ; scaling = True if sampling == None else False #both same uniform mass distribution
+#bins=10 ; count=125 ; N=625
+#bins=200 ; count=5 ; N=625
 
 """
 #ML settings GridSearch
@@ -113,26 +111,104 @@ def add_scores(score, x, y, y_pred):
     score[1] = r2_score(y, y_pred)
     return np.append(score, [adjusted_R_squared(score[1], x.shape[1], len(y)), np.mean(y_pred - y), np.var(y_pred - y)])
 
-#------------------------------------------ Read data --------------------------------------------------------------
-#read data
+"""
+Note that we perform everything in logscale since the errors are also given in log scale!
+"""
+
+#-----------------EAGLE preprocessing-------------------
 eagle = EAGLE(fol, sim, cat, dust, snap, redshift, seed, eagle_xcols, eagle_ycols, eagle_xtype)
 eagle.preprocess(colors)
 
+#-----------------SDSS preprocessing-------------------
 sdss = SDSS(sdss_xcols, sdss_ycols, sdss_xtype, redshift)
-sdss.preprocess(colors)
 
-#sample data
+#datacols
+prefix = sdss.ycols[0].replace('median', '')
+sdss.datacols += [prefix + '16th', prefix + '84th']
+
+#read data
+sdss.read_data()
+
+#select only galaxies of given redshift
+sdss.select_redshift(frac=5e-3)
+
+#to magnitude
+if sdss.xtype == 'flux':
+    to_magnitude(sdss, sdss.xtype, luminosity_distance_sdss)
+
+#add colors
+add_colors(sdss, sdss.xtype+'_', colors)
+
+#remove galaxies with nan mass
+sdss.data = sdss.data[~np.isnan(structured_to_unstructured(sdss.data[sdss.ycols]))]
+
+#-----------------Add variance to mass-------------------
+#array of mass errors
+mass_sigma = (sdss.data[prefix + '84th'] - sdss.data[prefix + '16th'])/2
+
+#mass arrays
+eagle_mass = structured_to_unstructured(eagle.data[eagle.ycols])
+sdss_mass = structured_to_unstructured(sdss.data[sdss.ycols])
+
+#mass_bins = 20 ; mass_count = 25
+mass_bins = 300; mass_count = 5
+
+#mass errors arrays
+mass_errors = np.empty((mass_bins))
+
+#histogram of sdss logarithmic stellar mass
+hist_sdss, mass_edges = np.histogram(sdss_mass, bins=mass_bins)
+
+#histogram of eagle logarithmic stellar mass
+hist_eagle = np.histogram(eagle_mass, bins=mass_edges)[0]
+
+#remaining bins
+remain = (hist_sdss > mass_count) & (hist_eagle > mass_count)
+remain = consecutive_trues(remain)
+
+print("Number of remaining bins: ", len(np.where(remain)[0]))
+for j in range(mass_bins):
+    mask_eagle = (eagle_mass >= mass_edges[j]) & (eagle_mass < mass_edges[j+1])
+    mask_sdss = (sdss_mass >= mass_edges[j]) & (sdss_mass < mass_edges[j+1])
+    if remain[j]:
+        mass_errors[j] = np.average(mass_sigma[mask_sdss])
+        eagle.data[eagle.ycols][mask_eagle] = np.random.normal(structured_to_unstructured(eagle.data[eagle.ycols][mask_eagle]), mass_errors[j])
+    else:
+        eagle.data[eagle.ycols][mask_eagle] = np.nan
+        sdss.data[sdss.ycols][mask_sdss] = np.nan
+        
+#remove nans
+eagle.data = eagle.data[~np.isnan(structured_to_unstructured(eagle.data[eagle.ycols]))]
+sdss.data = sdss.data[~np.isnan(structured_to_unstructured(sdss.data[sdss.ycols]))]
+
+#eagle remaining preprocessing steps
+eagle.x, eagle.y = divide_input_output(eagle)
+
+#sdss remaining preprocessing steps
+sdss.datacols = sdss.xcols + sdss.ycols
+select_cols(sdss)
+sdss.x, sdss.y = divide_input_output(sdss)
+sdss.x, sdss.y = remove_zero(sdss.x, sdss.y)
+sdss.x, sdss.y = remove_minone(sdss.x, sdss.y)
+sdss.y, sdss.y = remove_nan(sdss.x, sdss.y)
+sdss.x, sdss.y = remove_inf(sdss.x, sdss.y)
+
+#determine number of bins for sampling
+binsize = 0.01046
+range_mass = np.amax(eagle.y) - np.amin(eagle.y)
+bins = int(range_mass / binsize)
+count = int(np.ceil(N / bins / 5)*5)+5
+print("number of bins of size ", binsize, " dex: ", bins)
 sample(eagle, sdss, sampling, bins, count, N)
 
-#scale data
 eagle.scaling()
 sdss.scaling(eagle)
 
-#divide into train and test set
-x_train, x_test, y_train, y_test, eagle.cs_train, eagle.cs_test = train_test_split(eagle.x, eagle.y, eagle.cs, test_size=1-perc_train, random_state=seed, shuffle=True)
+x_train, x_test, y_train, y_test = train_test_split(eagle.x, eagle.y, test_size=0.2, random_state=eagle.seed, shuffle=True)
 print("Total size of data: %s; size of training set: %s ; size of test set: %s"%(len(eagle.x), len(x_train), len(x_test)))
 
 print("EAGLE: len(eagle.x) = %s ; len(x_train) = %s ; len(x_test) = %s ; len(sdss.x) = %s"%(len(eagle.x), len(x_train), len(x_test), len(sdss.x)))
+
 
 if plotting:
     #if sampling == 'uniform':
@@ -142,7 +218,6 @@ if plotting:
     edges = 10
     plot_data = PLOT_DATA(xnames+ynames, sim=sim, snap=snap, N=len(sdss.y), inp=inp, sampling=str(sampling))
     plot_data.hist_data(('eagle-train', 'eagle-test', 'sdss-total'), [np.hstack((x_train, y_train)), np.hstack((x_test, y_test)), np.hstack((sdss.x, sdss.y))], edges, xlim=[-1.5,1.5], ylim=[-1.1,1.1])
-    #plot_data.hist_data(('eagle', 'sdss-total'), [np.vstack((np.hstack((x_train, y_train)), np.hstack((x_test, y_test)))), np.hstack((sdss.x, sdss.y))], edges, xlim=[-1.5,1.5], ylim=[-1.1,1.1])
     plot_data.datanames = xnames+[ynames[0].split('(')[0]+'$']
     plot_data.statistical_matrix(x_test, y_test, ['eagle'], simple=True)
     plot_data.statistical_matrix(sdss.x, sdss.y, ['sdss'], simple=True)
@@ -243,6 +318,7 @@ if plotting:
     plot.plot_input_output(sdss.x, sdss.y, sdss.ypred) #scatter, contour
     plot.plot_true_predict(sdss.y, sdss.ypred, 'scatter') #scatter, hexbin, contour, contourf
     plot.plot_output_error(sdss.y, sdss.ypred, 'contourf', ylim=(-0.15, 0.3)) #scatter, hexbin, contour
+
 
 """
 #------------------------------------------CREATE GIF--------------------------------------------------------------

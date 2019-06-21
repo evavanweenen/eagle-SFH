@@ -113,6 +113,37 @@ def add_scores(score, x, y, y_pred):
     score[1] = r2_score(y, y_pred)
     return np.append(score, [adjusted_R_squared(score[1], x.shape[1], len(y)), np.mean(y_pred - y), np.var(y_pred - y)])
 
+"""
+def scaling_sdss(self):
+    if self.x.ndim == 1:
+        self.x = self.x.reshape(-1,1)
+    self.y = self.y.reshape(-1,1)
+    self.xscaler = MinMaxScaler(feature_range=(-1,1)).fit(self.x)#StandardScaler())#
+    self.yscaler = MinMaxScaler(feature_range=(-1,1)).fit(self.y)#StandardScaler())#
+    self.x = self.xscaler.transform(self.x)
+    self.y = self.yscaler.transform(self.y)
+
+def scaling_eagle(self, sdss):
+    self.y = self.y.reshape(-1,1)
+    if self.x.ndim == 1:
+        self.x = self.x.reshape(-1,1)
+    self.x = sdss.xscaler.transform(self.x)
+    self.y = sdss.yscaler.transform(self.y)
+    
+def postprocess_sdss(self, x_test, y_test, y_pred):
+    #return x_test, y_test and y_pred to their original scale  
+    x_test = self.xscaler.inverse_transform(x_test)
+    y_test = self.yscaler.inverse_transform(y_test)
+    y_pred = self.yscaler.inverse_transform(y_pred)
+    return x_test, y_test, y_pred
+
+def postprocess_eagle(self, sdss, x, y, y_pred):
+    x = sdss.xscaler.inverse_transform(x)
+    y = sdss.yscaler.inverse_transform(y)
+    y_pred = sdss.yscaler.inverse_transform(y_pred)
+    return x, y, y_pred
+"""
+
 #------------------------------------------ Read data --------------------------------------------------------------
 #read data
 eagle = EAGLE(fol, sim, cat, dust, snap, redshift, seed, eagle_xcols, eagle_ycols, eagle_xtype)
@@ -122,14 +153,14 @@ sdss = SDSS(sdss_xcols, sdss_ycols, sdss_xtype, redshift)
 sdss.preprocess(colors)
 
 #sample data
-sample(eagle, sdss, sampling, bins, count, N)
+sample(sdss, eagle, sampling, bins, count, N)
 
 #scale data
 eagle.scaling()
 sdss.scaling(eagle)
 
 #divide into train and test set
-x_train, x_test, y_train, y_test, eagle.cs_train, eagle.cs_test = train_test_split(eagle.x, eagle.y, eagle.cs, test_size=1-perc_train, random_state=seed, shuffle=True)
+x_train, x_test, y_train, y_test = train_test_split(sdss.x, sdss.y, test_size=1-perc_train, random_state=seed, shuffle=True)
 print("Total size of data: %s; size of training set: %s ; size of test set: %s"%(len(eagle.x), len(x_train), len(x_test)))
 
 print("EAGLE: len(eagle.x) = %s ; len(x_train) = %s ; len(x_test) = %s ; len(sdss.x) = %s"%(len(eagle.x), len(x_train), len(x_test), len(sdss.x)))
@@ -141,11 +172,11 @@ if plotting:
         #edges = 7
     edges = 10
     plot_data = PLOT_DATA(xnames+ynames, sim=sim, snap=snap, N=len(sdss.y), inp=inp, sampling=str(sampling))
-    plot_data.hist_data(('eagle-train', 'eagle-test', 'sdss-total'), [np.hstack((x_train, y_train)), np.hstack((x_test, y_test)), np.hstack((sdss.x, sdss.y))], edges, xlim=[-1.5,1.5], ylim=[-1.1,1.1])
+    plot_data.hist_data(('sdss-train', 'sdss-test', 'eagle-total'), [np.hstack((x_train, y_train)), np.hstack((x_test, y_test)), np.hstack((eagle.x, eagle.y))], edges, xlim=[-1.5,1.5], ylim=[-1.1,1.1])
     #plot_data.hist_data(('eagle', 'sdss-total'), [np.vstack((np.hstack((x_train, y_train)), np.hstack((x_test, y_test)))), np.hstack((sdss.x, sdss.y))], edges, xlim=[-1.5,1.5], ylim=[-1.1,1.1])
     plot_data.datanames = xnames+[ynames[0].split('(')[0]+'$']
     plot_data.statistical_matrix(x_test, y_test, ['eagle'], simple=True)
-    plot_data.statistical_matrix(sdss.x, sdss.y, ['sdss'], simple=True)
+    plot_data.statistical_matrix(eagle.x, eagle.y, ['sdss'], simple=True)
 
 input_size = len(x_train[0])
 output_size = len(y_train[0])
@@ -154,10 +185,11 @@ print("nodes in the network: ", nodes)
 
 #read hyperparameters
 nn = NN(input_size, output_size, h_nodes, activation, dropout, loss, epochs, batch_size, optimizer)
-new_result = AdditionalValidationSets([(sdss.x, sdss.y, 'val2')])
+new_result = AdditionalValidationSets([(eagle.x, eagle.y, 'val2')])
 callbacks = [new_result]
 
-#------------------------------------------Cross-validate on EAGLE--------------------------------------------------------------
+
+#------------------------------------------Cross-validate on SDSS--------------------------------------------------------------
 K = 5
 
 #crossvalidation data
@@ -176,7 +208,8 @@ avg_cv_score = np.average(cv_score, axis=0)
 
 print("Cross-validated errors (EAGLE): MAE = %.3e ; R^2 = %.3f ; adjusted R^2 = %.3f ; error_mean = %.3e ; error_sigma = %.3e"%tuple(avg_cv_score))
 
-#------------------------------------------Train and test on EAGLE--------------------------------------------------------------
+
+#------------------------------------------Train and test on SDSS--------------------------------------------------------------
 #train, evaluate, predict, postprocess
 nn.MLP_model()
 result = nn.model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, verbose=0, validation_data=(x_test, y_test), callbacks=callbacks) #train
@@ -185,29 +218,21 @@ y_pred = nn.model.predict(x_test) #predict
 score = add_scores(score, x_test, y_test, y_pred) #add scores
 print("Errors (EAGLE): MAE = %.3e ; R^2 = %.3f ; adjusted R^2 = %.3f ; error_mean = %.3e ; error_sigma = %.3e"%tuple(score))
 
-#central satellites analysis
-if cs == True:
-    cs_mask = eagle.cs_test
-    score_c = nn.model.evaluate(x_test[cs_mask], y_test[cs_mask], verbose=0)
-    score_s = nn.model.evaluate(x_test[~cs_mask], y_test[~cs_mask], verbose=0)
-    score_c = add_scores(score_c, x_test[cs_mask], y_test[cs_mask], y_pred[cs_mask])
-    score_s = add_scores(score_s, x_test[~cs_mask], y_test[~cs_mask], y_pred[~cs_mask])
-    print("Errors (EAGLE) centrals: MAE = %.3e ; R^2 = %.3g ; adjusted R^2 = %.3g ; error_mean = %.3e ; error_sigma = %.3e"%tuple(score_c))
-    print("Errors (EAGLE) satellites: MAE = %.3e ; R^2 = %.3g ; adjusted R^2 = %.3g ; error_mean = %.3e ; error_sigma = %.3e"%tuple(score_s))
 
-#------------------------------------------Compare with SDSS--------------------------------------------------------------
+#------------------------------------------Compare with EAGLE--------------------------------------------------------------
 #evaluate, predict, postprocess
-sdss_score = nn.model.evaluate(sdss.x, sdss.y, verbose=0) #evaluate
-sdss.ypred = nn.model.predict(sdss.x) #predict
-sdss_score = add_scores(sdss_score, sdss.x, sdss.y, sdss.ypred)
-print("Errors (SDSS): MAE = %.3e ; R^2 = %.3g ; adjusted R^2 = %.3g ; error_mean = %.3e ; error_sigma = %.3e"%tuple(sdss_score))
+eagle_score = nn.model.evaluate(eagle.x, eagle.y, verbose=0) #evaluate
+eagle.ypred = nn.model.predict(eagle.x) #predict
+eagle_score = add_scores(eagle_score, eagle.x, eagle.y, eagle.ypred)
+print("Errors (SDSS): MAE = %.3e ; R^2 = %.3g ; adjusted R^2 = %.3g ; error_mean = %.3e ; error_sigma = %.3e"%tuple(eagle_score))
 
-np.save('/disks/strw9/vanweenen/mrp2/plots/score_'+xcols_string+'_'+eagle_ycols[0]+'_inp='+inp+'_sampling='+str(sampling)+'.pdf', np.vstack((avg_cv_score, score, sdss_score)))
+np.save('/disks/strw9/vanweenen/mrp2/plots/score_'+xcols_string+'_'+eagle_ycols[0]+'_inp='+inp+'_sampling='+str(sampling)+'.pdf', np.vstack((avg_cv_score, score, eagle_score)))
+
 
 #------------------------------------------Calculate shapley values--------------------------------------------------------------
 explainer = shap.DeepExplainer(nn.model, x_train)
-shap_eagle = explainer.shap_values(x_test)[0]
-shap_sdss = explainer.shap_values(sdss.x)[0]
+shap_sdss = explainer.shap_values(x_test)[0]
+shap_eagle = explainer.shap_values(eagle.x)[0]
 
 shapdir = '/disks/strw9/vanweenen/mrp2/plots/mlp_dustyflux_mstar/feature_importance/shap/tests_linearfunc/one_coeff/'
 
@@ -220,60 +245,29 @@ shapdir = '/disks/strw9/vanweenen/mrp2/plots/mlp_dustyflux_mstar/feature_importa
 #shap_sdss -= shap_sdss_ref
 
 plot_shap = PLOT_SHAP(xnames, xcols_string, inp, str(sampling))
-plot_shap.summary_plot(x_test, shap_eagle, 'eagle', shap_sdss, 'sdss', plottype = 'bar')
-plot_shap.summary_plot(x_test, shap_eagle, 'eagle', plottype = 'dot', dotsize=10)
+plot_shap.summary_plot(x_test, shap_sdss, 'sdss', shap_eagle, 'eagle', plottype = 'bar')
+plot_shap.summary_plot(x_test, shap_sdss, 'sdss', plottype = 'dot', dotsize=10)
+
 
 #------------------------------------------Plotting--------------------------------------------------------------
-x_test, y_test, y_pred = eagle.postprocess(x_test, y_test, y_pred) #postprocessing
+x_test, y_test, y_pred = sdss.postprocess(eagle, x_test, y_test, y_pred) #postprocessing #TODO
 
 #plot
 if plotting:
-    plot = PLOT_NN(eagle, nn, xnames, ynames, dataname='eagle', N=len(y_test), xcols_string=xcols_string, inp=inp, sampling=str(sampling), score=score)#[mse[19], r2[19]]
+    plot = PLOT_NN(eagle, nn, xnames, ynames, dataname='sdss', N=len(y_test), xcols_string=xcols_string, inp=inp, sampling=str(sampling), score=score)#[mse[19], r2[19]]
     plot.plot_learning_curve(new_result)
 
     plot.plot_input_output(x_test, y_test, y_pred, 'scatter') #scatter, contour
     plot.plot_true_predict(y_test, y_pred, 'scatter', cs_mask) #scatter, hexbin, contour, contourf
     plot.plot_output_error(y_test, y_pred, 'contourf', cs_mask) #scatter, hexbin, contour
 
-sdss.x, sdss.y, sdss.ypred = sdss.postprocess(eagle, sdss.x, sdss.y, sdss.ypred) #postprocessing
+eagle.x, eagle.y, eagle.ypred = eagle.postprocess(eagle.x, eagle.y, eagle.ypred) #postprocessing #todo
 
 #plot
 if plotting:
-    plot = PLOT_NN(eagle, nn, xnames, ynames, dataname='sdss', N=len(sdss.y), xcols_string=xcols_string, inp=inp, sampling=str(sampling), score=sdss_score)#[mse[19], r2[19]]
-    plot.plot_input_output(sdss.x, sdss.y, sdss.ypred) #scatter, contour
-    plot.plot_true_predict(sdss.y, sdss.ypred, 'scatter') #scatter, hexbin, contour, contourf
-    plot.plot_output_error(sdss.y, sdss.ypred, 'contourf', ylim=(-0.15, 0.3)) #scatter, hexbin, contour
+    plot = PLOT_NN(eagle, nn, xnames, ynames, dataname='eagle', N=len(eagle.y), xcols_string=xcols_string, inp=inp, sampling=str(sampling), score=eagle_score)#[mse[19], r2[19]]
+    plot.plot_input_output(eagle.x, eagle.y, eagle.ypred) #scatter, contour
+    plot.plot_true_predict(eagle.y, eagle.ypred, 'scatter') #scatter, hexbin, contour, contourf
+    plot.plot_output_error(eagle.y, eagle.ypred, 'contourf', ylim=(-0.3, 0.15)) #scatter, hexbin, contour
 
-"""
-#------------------------------------------CREATE GIF--------------------------------------------------------------
-#read data
-eagle = EAGLE(fol, sim, cat, snap, redshift, eagle_xcols, eagle_ycols, perc_train)
-x_train, y_train, x_test, y_test = eagle.preprocess(eagle_xtype)
-
-input_size = len(x_train[0])
-output_size = len(y_train[0])
-nodes = [input_size] + h_nodes + [output_size]
-print("nodes in the network: ", nodes)
-
-#read hyperparameters and make network
-nn = NN(input_size, output_size, h_nodes, activation, dropout, loss, epochs, batch_size, optimizer)
-nn.MLP_model()
-
-Y_pred, mse, r2 = [], [], [] 
-for i in range(epochs):
-    #train, evaluate, predict, postprocess
-    result = nn.model.fit(x_train, y_train, batch_size=batch_size, epochs=1, verbose=0, validation_data=(x_test, y_test)) #train 
-    score = nn.model.evaluate(x_test, y_test, verbose=0) #evaluate
-    y_pred = nn.model.predict(x_test) #predict
-    x_test_log, y_test_log, y_pred = eagle.postprocess(x_test, y_test, y_pred) #postprocess
-    #plotting
-    plot = PLOT_NN(eagle, nn, xnames, ynames, MLtype='MLP', score=score, epochs=i)
-    #plot.plot_input_output(x_test_log, y_test_log, y_pred)
-    #plot.plot_true_predict(y_test_log, y_pred)
-    #save values for gif    
-    Y_pred.append(y_pred) ; mse.append(score[0]) ; r2.append(score[1])
-
-#plot gif
-plot.gif_input_output(x_test_log, y_test_log, Y_pred=Y_pred, mse=mse, r2=r2)
-"""
 

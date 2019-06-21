@@ -1,35 +1,22 @@
 import numpy as np
+from astropy import units as u
+from astropy import constants as const
+from astropy.cosmology import Planck13, FlatLambdaCDM
 from scipy.integrate import quad
 
-def luminosity_distance(z_eval, H_0 = 67.77, omega_m = 0.307, omega_lambda = 0.693):
+def luminosity_distance_eagle(z_eval):
     """
-    Calculate luminosity distance in Lambda CDM universe (omega_k = 0) at a given redshift z_eval
-    using   d_L(z) = (1+z)*d_C(z)                   luminosity distance
-            d_C(z) = c*integral dz'/H from 0 to z   comoving distance
-    Default parameters: Planck 2013
-    Arguments
-        H_0             - Hubble constant today = 67.77 (km/s/Mpc)
-        omega_m         - matter density = 0.307
-        omega_lambda    - dark energy density = 0.693
-    Returns:
-        d_L             - luminosity distance at z_eval (pc)
-    """    
-    
-    c = 299792458 #m/s
-    
-    def integrand(z, omega_m, omega_lambda):
-        return 1/np.sqrt(omega_m*((1+z)**3.) + omega_lambda)
-    
-    I, I_err = quad(integrand, 0, z_eval, args=(omega_m, omega_lambda))
-    print("Integrand: ", I, " error: ", I_err)
-    
-    # Comoving distance (pc)
-    d_C = c/H_0*(10**3) * I 
-    
-    # Luminosity distance (pc)
-    d_L = (1+z_eval)*d_C
-    return d_L
+    Calculate the luminosity distance for EAGLE galaxies at a given redshift z_eval using the Planck2013 cosmology
+    """
+    return Planck13.luminosity_distance(z_eval).to(u.parsec).value
 
+def luminosity_distance_sdss(z_eval):
+    """
+    Calculate the luminosity distance for SDSS galaxies at a given redshift z_eval using a Flat Lambda CDM cosmology
+    with Omega_matter = 0.3, omega_lambda = 0.7 and H0 = 70 km/s/Mpc
+    """
+    return FlatLambdaCDM(H0=70, Om0=0.3).luminosity_distance(z_eval).to(u.parsec).value
+    
 def app_to_abs_mag(m, d_L):
     """
     Convert apparent magnitude m to absolute magnitude M using luminosity distance d_L (pc)

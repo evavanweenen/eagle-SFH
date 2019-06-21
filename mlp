@@ -1,0 +1,22 @@
+#!/bin/bash
+
+source ../env/bin/activate
+
+folder="mass_brinchmann_salpeter"
+mkdir ../plots/$folder
+
+samplings=( "None" "random" "uniform" )
+colors=( "nocolors" "subsetcolors" "allcolors" )
+
+for s in "${samplings[@]}"
+do
+        for c in "${colors[@]}"
+        do
+		python3 mlp.py $c $s
+		cd ../plots
+		mkdir $folder/$s'_'$c
+		mv *.pdf $folder/$s'_'$c 
+		mv *.npy $folder/$s'_'$c
+		cd ../code
+	done
+done
