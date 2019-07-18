@@ -107,8 +107,8 @@ class PLOT_DATA:
         fig, ax = plt.subplots()
         fig.suptitle('Correlation matrix' + self.plottitle, fontsize=title_fontsize)
         im = ax.imshow(C, cmap=cmap, vmin=vmin, vmax=vmax, aspect='auto')
-        ax.set_xticks(np.arange(len(self.datanames))) ; ax.set_xticklabels(self.datanames, fontsize=7)
-        ax.set_yticks(np.arange(len(self.datanames))) ; ax.set_yticklabels(self.datanames, fontsize=7)
+        ax.set_xticks(np.arange(len(self.datanames))) ; ax.set_xticklabels(self.datanames, fontsize=9)
+        ax.set_yticks(np.arange(len(self.datanames))) ; ax.set_yticklabels(self.datanames, fontsize=9)
         cbar = fig.colorbar(im, ax=ax) ; cbar.ax.yaxis.set_major_locator(plt.MaxNLocator(nticks))
         if not simple:
             im_m = ax.imshow(Cm, cmap='Reds_r', vmin=-vmax, vmax=-vmin, aspect='auto')
