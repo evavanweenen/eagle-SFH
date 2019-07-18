@@ -70,7 +70,7 @@ The following experiments are performed:
 * `mlp_modifyinput.py` [probably-old] Add noise to the input features of the neural network
 * `mlp_modifyoutput.py` Add noise to the output features of the neural network
 
-To perform an experiment for all different samplings (*None*, *random*, *uniform*) and input features (*nocolors*, *subsetcolors*, *allcolors*), use the bash script `mlp` (and edit it to run the experiment of your choice). To combine all plots of the samplings and inputs into one pdf, run the bash script `summary`.  
+To perform an experiment for all different samplings (*None*, *random*, *uniform*) and input features (*nocolors*, *subsetcolors*, *allcolors*), use the bash script `mlp` (and edit it to run the experiment of your choice). To combine all plots of the samplings and inputs into one pdf, run the bash script `summary`. The tables with error measures can be read with `load_tables.py`.
 
 Currently the code is used to predict stellar mass at one specific redshift. This could be improved by predicting the stellar mass at several redshifts (e.g. use redshift as an input), and by predicting the star formation rate instead of stellar mass. 
 To publish these results, don't forget to try out different random seeds to ensure that we are not optimizing over this specific random seed.
