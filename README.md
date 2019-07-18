@@ -92,13 +92,16 @@ Please note that I had to use an older version of tensorflow because I used an o
 If you want to create a virtual environment, please follow the following instructions:
 
 1. Open a terminal and go to the directory you want to put your virtual environment in. Create a directory `env` for the environment.
+
         cd <dir>
         bash -l
         mkdir env
 2. Download and unpack the correct python version (version 3.6.8 here)
+
         wget https://www.python.org/ftp/python/3.6.8/Python-3.6.8.tgz
         tar -zxvf Python-3.6.8.tgz
 3. Install python in a directory `.python3.6`
+
         cd Python-3.6.8
         mkdir ../.python3.6
         ./configure --prefix=<dir>/.python3.6
@@ -106,12 +109,14 @@ If you want to create a virtual environment, please follow the following instruc
         make install
         cd ..
 4. Install `virtualenv`
+
         wget https://files.pythonhosted.org/packages/59/38/55dd25a965990bd93f77eb765b189e72cf581ce1c2de651cb7b1dea74ed1/virtualenv-16.2.0.tar.gz
         tar -zxvf virtualenv-16.2.0.tar.gz
         cd virtualenv-16.2.0
         <dir>/.python3.6/bin/python3 setup.py install
         cd ..
 5. Create virtual environment and activate it
+
         virtualenv-16.2.0/virtualenv.py env -p <dir>/.python3.6/bin/python3.6
         source env/bin/activate
         
