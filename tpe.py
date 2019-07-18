@@ -16,7 +16,7 @@ import tensorflow as tf
 
 dir =  '/disks/strw9/vanweenen/mrp2/optimization/'
 
-name = '-newspace100'
+name = '-newspace-nodropout-mae-nocolors-100-2'
 
 date = datetime.date.today().strftime('%Y%m%d')
 f = open(dir+'hyperas_'+date+name+'.out', 'w')
@@ -48,7 +48,7 @@ def data():
     redshift = 0.1          # redshift of snapshot    
 
     fluxes = ('u', 'g', 'r', 'i', 'z')
-    colors = ()#('ug', 'gr', 'ri', 'iz')
+    colors = ()#('ug', 'ur', 'ui', 'uz', 'gr', 'gi', 'gz', 'ri', 'rz', 'iz')#('ug', 'gr', 'ri', 'iz')#
     xcols = fluxes + colors
 
     #eagle
@@ -56,12 +56,13 @@ def data():
     eagle_xcols = [dust + eagle_xtype + '_' + cat + '_' + f for f in xcols]
     eagle_ycols = ['m_star']#['sfr']#
 
-    equal_bins = False #uniform mass distribution
+    uniform_mass = False #uniform mass distribution
+    random_sample = False
 
     #read data
     eagle = EAGLE(fol, sim, cat, dust, snap, redshift)
     eagle.read_data()
-    x_train, y_train, x_test, y_test = eagle.preprocess(colors, eagle_xcols, eagle_ycols, eagle_xtype, equal_bins)
+    x_train, y_train, x_test, y_test = eagle.preprocess(colors, eagle_xcols, eagle_ycols, eagle_xtype, uniform_mass, random_sample=random_sample)
     
     X_train, Y_train, X_val, Y_val = cross_validation(x_train, y_train, K, seed)
     return X_train, Y_train, X_val, Y_val
@@ -75,13 +76,10 @@ def create_model(X_train, Y_train, X_val, Y_val):
     activation0 = {{choice(['tanh', 'relu', 'linear'])}}
     activation1 = {{choice(['tanh', 'relu', 'linear'])}}
     activation2 = {{choice(['tanh', 'relu', 'linear'])}}
-    dropout0 = {{uniform(0, 0.2)}}
-    dropout1 = {{uniform(0, 0.2)}}
-    dropout2 = {{uniform(0, 0.2)}}
     optimizer= {{choice(['sgd', 'RMSprop', 'Adagrad', 'Adadelta', 'Adam', 'Adamax', 'Nadam'])}}
 
     activation_out = 'linear'    
-    loss = 'mean_squared_error' 
+    loss = 'mean_absolute_error' 
     epochs = 15
     batch_size = 128
     input_size = X_train[0].shape[1] ; output_size = Y_train[0].shape[1]
@@ -89,7 +87,7 @@ def create_model(X_train, Y_train, X_val, Y_val):
     nn = NN(input_size, output_size, \
                 [h_nodes0, h_nodes1, h_nodes2], \
                 [activation0, activation1, activation2, activation_out], \
-                [dropout0, dropout1, dropout2], \
+                [0., 0., 0.], \
                 loss, epochs, batch_size, optimizer)    
 
     cv_score = np.empty((5,2))
@@ -98,7 +96,7 @@ def create_model(X_train, Y_train, X_val, Y_val):
         result = nn.model.fit(X_train[i], Y_train[i], batch_size=batch_size, epochs=epochs, verbose=0, validation_data=(X_val[i], Y_val[i]))
         cv_score[i,0] = np.amin(result.history['val_loss']) ; cv_score[i,1] = np.amax(result.history['val_R_squared'])
     avg_cv_score = np.average(cv_score, axis=0) 
-    print('Best validation R2 of epoch:', avg_cv_score[1])
+    print('Best validation MAE = %.4e ; R2 = %.4g'%(avg_cv_score[0], avg_cv_score[1]))
     return {'loss': avg_cv_score[0], 'status': STATUS_OK, 'model': nn.model}
 
 

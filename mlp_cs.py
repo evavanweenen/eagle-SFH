@@ -51,7 +51,7 @@ sdss_xcols = [sdss_xtype + '_' + f for f in xcols]
 sdss_ycols = ['Mstellar_median']#['SFR_median']#
 
 #input output plot
-xnames=[dust + ' ' + cat + ' ' + i for i in list(fluxes) + [c[0] + '-' + c[1] for c in colors]]
+xnames= list(fluxes) + [c[0] + '-' + c[1] for c in colors]
 ynames=['$\log_{10} M_{*} (M_{\odot})$']#['$\log_{10}$ SFR $(M_{\odot} yr^{-1})$']#
 
 #preprocessing

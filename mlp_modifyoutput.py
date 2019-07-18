@@ -194,12 +194,14 @@ sdss.y, sdss.y = remove_nan(sdss.x, sdss.y)
 sdss.x, sdss.y = remove_inf(sdss.x, sdss.y)
 
 #determine number of bins for sampling
-binsize = 0.01046
-range_mass = np.amax(eagle.y) - np.amin(eagle.y)
-bins = int(range_mass / binsize)
-count = int(np.ceil(N / bins / 5)*5)+5
-print("number of bins of size ", binsize, " dex: ", bins)
-sample(eagle, sdss, sampling, bins, count, N)
+#binsize = 0.01046
+#range_mass = np.amax(eagle.y) - np.amin(eagle.y)
+#bins = int(range_mass / binsize)
+#count = int(np.ceil(N / bins / 5)*5)+5
+#print("number of bins of size ", binsize, " dex: ", bins)
+edges = np.load('/disks/strw9/vanweenen/mrp2/plots/edges_remain.npy')
+bins=10 ; count=125
+sample(eagle, sdss, sampling, edges, count, N)
 
 eagle.scaling()
 sdss.scaling(eagle)
@@ -211,11 +213,11 @@ print("EAGLE: len(eagle.x) = %s ; len(x_train) = %s ; len(x_test) = %s ; len(sds
 
 
 if plotting:
-    #if sampling == 'uniform':
-        #edges = eagle.yscaler.transform(eagle.edges.reshape(-1,1)).T[0]
-    #else:
-        #edges = 7
-    edges = 10
+    if sampling == 'uniform':
+        edges = eagle.yscaler.transform(eagle.edges.reshape(-1,1)).T[0]
+    else:
+        edges = 7
+    #edges = 10
     plot_data = PLOT_DATA(xnames+ynames, sim=sim, snap=snap, N=len(sdss.y), inp=inp, sampling=str(sampling))
     plot_data.hist_data(('eagle-train', 'eagle-test', 'sdss-total'), [np.hstack((x_train, y_train)), np.hstack((x_test, y_test)), np.hstack((sdss.x, sdss.y))], edges, xlim=[-1.5,1.5], ylim=[-1.1,1.1])
     plot_data.datanames = xnames+[ynames[0].split('(')[0]+'$']
