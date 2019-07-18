@@ -38,7 +38,7 @@ The data can be downloaded from the [EAGLE database](http://virgodb.dur.ac.uk:80
 
 When reading the data, change the filename in `io.py` to your filename.
 
-The Sloan Digital Sky Survey (SDSS) catalogue is the [Chang et al. 2015](https://iopscience.iop.org/article/10.1088/0067-0049/219/1/8) catalogue. Pleasure ensure that the heading of the table corresponds with the headings used in the preamble of the code.
+The Sloan Digital Sky Survey (SDSS) catalogue used is the catalogue of [Chang et al. 2015](https://iopscience.iop.org/article/10.1088/0067-0049/219/1/8). Pleasure ensure that the heading of the table corresponds with the headings used in the preamble of the code.
 
 ## Repository
 The repository consists of the eagle module, which consists of code to read data from EAGLE simulations and SDSS, cosmological calculations, the framework for the neural network used and the plots in this project.
