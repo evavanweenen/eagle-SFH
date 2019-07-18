@@ -15,7 +15,7 @@ np.random.seed(seed) #fix seed for reproducibility
 tf.set_random_seed(seed)
 
 path =  '/disks/strw9/vanweenen/mrp2/optimization/'
-name = ''
+name = 'colors'
 """
 #write output terminal to file
 name = ''
@@ -33,7 +33,7 @@ snap = 27               # snapshot to use
 redshift = 0.1          # redshift of snapshot    
 
 fluxes = ('u', 'g', 'r', 'i', 'z')
-colors = ()#('ug', 'gr', 'ri', 'iz')
+colors = ('ug', 'gr', 'ri', 'iz')#('ug', 'gr', 'ri', 'iz')
 xcols = fluxes + colors
 
 #eagle
@@ -50,25 +50,25 @@ sdss_ycols = ['Mstellar_median']#['SFR_median']#
 xnames=[dust + ' ' + cat + ' ' + i for i in list(fluxes) + [c[0] + '-' + c[1] for c in colors]]
 ynames=['$\log_{10} M_{*} (M_{\odot})$']#['$\log_{10}$ SFR $(M_{\odot} yr^{-1})$']#
 
-equal_bins = True #uniform mass distribution
-
+#preprocessing
+cs = False ; cs_mask = None #central satellite analysis (only change cs)
+uniform_mass = False ; bins = 10 ; count = 100 #uniform mass distribution
+random_sample = False ; N = 900 #random sample
 
 #------------------------------------------GridSearch--------------------------------------------------------------
 #hyperparams
 perc_train = .8
-h_nodes = [20, 50, 50]#[[10, 20, 30, 40, 50]]+2*[[None, 10, 20, 30, 40, 50]]#
-dropout = [0, 0, 0]#3*[[0., 0.2, 0.4, 0.7]]#
-activation = ['tanh', 'linear', 'tanh', 'linear']#3*[['sigmoid', 'tanh', 'relu', 'linear']] + ['linear']#
+h_nodes = [[20, 40, 60, 80]]+2*[[None, 20, 40, 60, 80]]#
+dropout = [0, 0, 0]
+activation = ['tanh', 'linear', 'tanh', 'linear']#3*[['tanh', 'relu', 'linear']] + ['linear']#
 loss = 'mean_squared_error'
-lr_rate = 0.001
 epochs = 15
 batch_size = 128
-optimizer = ['sgd', 'RMSprop', 'Adagrad', 'Adadelta', 'Adam', 'Adamax', 'Nadam']#'Adam'#
+optimizer = 'Adam'#['sgd', 'RMSprop', 'Adagrad', 'Adadelta', 'Adam', 'Adamax', 'Nadam']#
 
 #read data
-eagle = EAGLE(fol, sim, cat, dust, snap, redshift)
-eagle.read_data()
-x_train, y_train, x_test, y_test = eagle.preprocess(colors, eagle_xcols, eagle_ycols, eagle_xtype, equal_bins)
+eagle = EAGLE(fol, sim, cat, dust, snap, redshift, seed)
+x_train, y_train, x_test, y_test = eagle.preprocess(colors, eagle_xcols, eagle_ycols, eagle_xtype, uniform_mass, bins, count, random_sample, N)
 
 input_size = len(x_train[0])
 output_size = len(y_train[0])
@@ -76,12 +76,12 @@ nodes = [input_size] + h_nodes + [output_size]
 print("nodes in the network: ", nodes)
 
 #read hyperparameters and make architecture of the network
-nn = NN(input_size, output_size, h_nodes, activation, dropout, loss, lr_rate, epochs, batch_size, optimizer)
+nn = NN(input_size, output_size, h_nodes, activation, dropout, loss, epochs, batch_size, optimizer)
 nn.GridSearch(x_train, y_train, 3)
 
 #save output
-grid_edges = optimizer #param grid: list with lists of options
-grid_names = ['optimizer'] #make sure this name is latex compatible
+grid_edges = h_nodes #param grid: list with lists of options
+grid_names = ['hnodes0', 'hnodes1', 'hnodes2'] #make sure this name is latex compatible
 grid_shape = [len(i) for i in grid_edges]
 
 grid_mse = nn.grid_result.cv_results_['mean_test_neg_mean_squared_error'].reshape(grid_shape) * -1
