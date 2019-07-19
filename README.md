@@ -50,7 +50,7 @@ Note that some scripts used in the beginning of the project are still old and ne
 ### Overview of scripts
 The code can be run as follows:
 
-    mlp.py <input> <sampling>
+    python3 mlp.py <input> <sampling>
 where `<input>` is the input features to use (either *nocolors*, *subsetcolors* or *allcolors*) and `<sampling>` is the sampling procedure to use (either *None*, *random*, or *uniform*).
 
 In the preamble of the code, the simulation, snapshot (and thus redshift) are defined, that are used when reading the data in `io.py`. These settings are also used in the filename and title of plots. Furthermore, the names of the data columns that are read are defined (*xcols* and *ycols*) and whether this table contains fluxes or magnitudes (*xtype*). The names that should be used in the plots are defined as *xnames* and *ynames*. For a detailed description of the preprocessing steps, please refer to the thesis.
