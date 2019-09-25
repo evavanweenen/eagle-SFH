@@ -18,30 +18,49 @@ class SDSS:
         self.xcols = xcols 
         self.ycols = ycols
         self.datacols = [xtype + '_' + f for f in ('u', 'g', 'r', 'i', 'z')] + ycols + ['Redshift']
+        self.extincols = ['extin_' + f for f in ('u', 'g', 'r', 'i', 'z')]
         self.redshift = redshift
 
-    def read_data(self):
+    def read_data(self, extin=True):
         f = h5py.File(self.dir+self.file, 'r')
         self.hf_data = f.get('Data')
         self.data = np.empty((self.hf_data[self.datacols[0]].shape[0], len(self.datacols)))
         for i, col in enumerate(self.datacols):
             self.data[:,i] = self.hf_data.get(col)[()]
         self.data = to_structured_array(self.data, self.datacols, dtype = len(self.datacols)*['<f8'])
+        if extin:
+            self.extindata = np.empty((self.hf_data[self.extincols[0]].shape[0], len(self.extincols)))
+            for i, col in enumerate(self.extincols):
+                self.extindata[:,i] = self.hf_data.get(col)[()]
+            self.extindata = to_structured_array(self.extindata, self.extincols, dtype = len(self.extincols)*['<f8'])
+        
 
-    def select_redshift(self, frac = 5e-3):
+    def select_redshift(self, frac = 5e-3, extin=True):
+        if extin:
+            self.extindata = self.extindata[np.where(self.data['Redshift'] > self.redshift*(1 - frac))]
         self.data = self.data[np.where(self.data['Redshift'] > self.redshift*(1 - frac))]
+        if extin:
+            self.extindata = self.extindata[np.where(self.data['Redshift'] < self.redshift*(1 + frac))]
         self.data = self.data[np.where(self.data['Redshift'] < self.redshift*(1 + frac))]
-
-    def preprocess(self, colors, frac = 5e-3):
-        self.read_data()
+        
+    def add_extinction(self):
+        for f in ('u', 'g', 'r', 'i', 'z'):
+            self.data['flux_'+f] += self.extindata['extin_'+f]
+        
+    def preprocess(self, colors, frac = 5e-3, extin=True):
+        self.read_data(extin)
 
         #select only galaxies of given redshift
-        self.select_redshift(frac)
+        self.select_redshift(frac, extin)
         
         #to magnitude
         if self.xtype == 'flux':
             to_magnitude(self, self.xtype, luminosity_distance_sdss)
 
+        #add extinction
+        if extin:
+            self.add_extinction()
+            
         #add colors
         add_colors(self, self.xtype+'_', colors)
 
