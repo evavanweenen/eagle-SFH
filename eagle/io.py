@@ -35,6 +35,9 @@ class SDSS:
     def preprocess(self, colors, frac = 5e-3):
         self.read_data()
 
+        #convert stellar mass from units log10(h^-2 * M_sun) to log10(M_sun)
+        self.data[self.ycols[0]] += np.log10(.7**2.)
+
         #select only galaxies of given redshift
         self.select_redshift(frac)
         
